@@ -26,3 +26,4 @@ xcuserdata/
 *.xcscmblueprint
 
 .DS_Store
+SwiftLocation/.idea

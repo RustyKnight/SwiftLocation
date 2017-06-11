@@ -39,13 +39,13 @@ public let Location = LocationTracker.shared
 
 /// Location tracker class
 public final class LocationTracker: NSObject, CLLocationManagerDelegate {
-
+	
 	public typealias RequestPoolDidChange = ((Any) -> (Void))
 	public typealias LocationTrackerSettingsDidChange = ((TrackerSettings) -> (Void))
 	public typealias LocationDidChange = ((CLLocation) -> (Void))
 	
 	/// This is a reference to LocationManager's singleton where the main queue for Requests.
-	static let shared : LocationTracker = {
+	static let shared: LocationTracker = {
 		// CLLocationManager must be created on main thread otherwise
 		// it will generate an error at init time.
 		if Thread.isMainThread {
@@ -64,8 +64,12 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		self.locationManager.delegate = self
 		
 		// Listen for any change (add or remove) into all queues
-		let onAddHandler: ((Any) -> (Void)) = { self.onAddNewRequest?($0) }
-		let onRemoveHandler: ((Any) -> (Void)) = { self.onRemoveRequest?($0) }
+		let onAddHandler: ((Any) -> (Void)) = {
+			self.onAddNewRequest?($0)
+		}
+		let onRemoveHandler: ((Any) -> (Void)) = {
+			self.onRemoveRequest?($0)
+		}
 		for var pool in self.pools {
 			pool.onAdd = onAddHandler
 			pool.onRemove = onRemoveHandler
@@ -108,13 +112,13 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	
 	/// Queued requests regarding heading services
 	private var headingRequests: RequestsQueue<HeadingRequest> = RequestsQueue()
-
+	
 	/// Queued requests regarding region monitor services
 	private var regionRequests: RequestsQueue<RegionRequest> = RequestsQueue()
 	
 	/// Queued requests regarding visits
 	private var visitRequests: RequestsQueue<VisitsRequest> = RequestsQueue()
-
+	
 	/// This represent the status of the authorizations before a change
 	private var lastStatus: CLAuthorizationStatus = CLAuthorizationStatus.notDetermined
 	
@@ -146,26 +150,26 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			locationManager.distanceFilter = settings.distanceFilter
 			
 			self.onChangeTrackerSettings?(settings)
-
+			
 			switch settings.frequency {
-			case .significant:
-				guard CLLocationManager.significantLocationChangeMonitoringAvailable() else {
-					locationManager.stopAllLocationServices()
-					return
-				}
-				// If best frequency is significant location update (and hardware supports it) then start only significant location update
-				locationManager.stopUpdatingLocation()
-				locationManager.allowsBackgroundLocationUpdates = true
-				locationManager.startMonitoringSignificantLocationChanges()
-			case .deferredUntil(_,_,_):
-				locationManager.stopMonitoringSignificantLocationChanges()
-				locationManager.allowsBackgroundLocationUpdates = true
-				locationManager.startUpdatingLocation()
-			default:
-				locationManager.stopMonitoringSignificantLocationChanges()
-				locationManager.allowsBackgroundLocationUpdates = false
-				locationManager.startUpdatingLocation()
-				locationManager.disallowDeferredLocationUpdates()
+				case .significant:
+					guard CLLocationManager.significantLocationChangeMonitoringAvailable() else {
+						locationManager.stopAllLocationServices()
+						return
+					}
+					// If best frequency is significant location update (and hardware supports it) then start only significant location update
+					locationManager.stopUpdatingLocation()
+					locationManager.allowsBackgroundLocationUpdates = true
+					locationManager.startMonitoringSignificantLocationChanges()
+				case .deferredUntil(_, _, _):
+					locationManager.stopMonitoringSignificantLocationChanges()
+					locationManager.allowsBackgroundLocationUpdates = true
+					locationManager.startUpdatingLocation()
+				default:
+					locationManager.stopMonitoringSignificantLocationChanges()
+					locationManager.allowsBackgroundLocationUpdates = false
+					locationManager.startUpdatingLocation()
+					locationManager.disallowDeferredLocationUpdates()
 			}
 			
 		}
@@ -210,8 +214,12 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// orientation reference point. The original reference point is retained instead.
 	/// Changing the value in this property affects only those heading values reported after the change is made.
 	public var headingOrientation: CLDeviceOrientation {
-		set { locationManager.headingOrientation = headingOrientation }
-		get { return locationManager.headingOrientation }
+		set {
+			locationManager.headingOrientation = headingOrientation
+		}
+		get {
+			return locationManager.headingOrientation
+		}
 	}
 	
 	/// You can use this method to dismiss it after an appropriate amount of time to ensure that your app’s user interface
@@ -233,9 +241,23 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	///	  - cancelOnError: if `true` request will be cancelled when first error is received (both timeout or location service error)
 	/// - Returns: request
 	@discardableResult
-	public func getLocation(accuracy: Accuracy, frequency: Frequency, timeout: TimeInterval? = nil, cancelOnError: Bool = false, success: @escaping LocObserver.onSuccess, error: @escaping LocObserver.onError) -> LocationRequest {
+	public func getLocation(
+			accuracy: Accuracy,
+			frequency: Frequency,
+			activity: CLActivityType = .other,
+			minimumDistance: CLLocationDistance? = nil,
+			timeout: TimeInterval? = nil,
+			cancelOnError: Bool = false,
+			success: @escaping LocObserver.onSuccess,
+			error: @escaping LocObserver.onError) -> LocationRequest {
 		
-		let req = LocationRequest(accuracy: accuracy, frequency: frequency, success, error)
+		let req = LocationRequest(
+				accuracy: accuracy,
+				frequency: frequency,
+				activity: activity,
+				minimumDistance: minimumDistance,
+				success,
+				error)
 		req.timeout = timeout
 		req.cancelOnError = cancelOnError
 		req.resume()
@@ -278,7 +300,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// - Returns: request
 	@discardableResult
 	public func getPlacemark(forLocation location: CLLocation, timeout: TimeInterval? = nil,
-	                        success: @escaping GeocoderObserver.onSuccess, failure: @escaping GeocoderObserver.onError) -> GeocoderRequest {
+													 success: @escaping GeocoderObserver.onSuccess, failure: @escaping GeocoderObserver.onError) -> GeocoderRequest {
 		let req = GeocoderRequest(location: location, success, failure)
 		req.timeout = timeout
 		req.resume()
@@ -297,7 +319,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// - Returns: request
 	@discardableResult
 	public func getLocation(forABDictionary dict: [AnyHashable: Any], timeout: TimeInterval? = nil,
-	                        success: @escaping GeocoderObserver.onSuccess, failure: @escaping GeocoderObserver.onError) -> GeocoderRequest {
+													success: @escaping GeocoderObserver.onSuccess, failure: @escaping GeocoderObserver.onError) -> GeocoderRequest {
 		let req = GeocoderRequest(abDictionary: dict, success, failure)
 		req.timeout = timeout
 		req.resume()
@@ -316,7 +338,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// - Returns: request
 	@discardableResult
 	public func getContinousHeading(filter: CLLocationDegrees, cancelOnError: Bool = false,
-	                                success: @escaping HeadingObserver.onSuccess, failure: @escaping HeadingObserver.onError) throws -> HeadingRequest {
+																	success: @escaping HeadingObserver.onSuccess, failure: @escaping HeadingObserver.onError) throws -> HeadingRequest {
 		let request = try HeadingRequest(filter: filter, success: success, failure: failure)
 		request.resume()
 		request.cancelOnError = cancelOnError
@@ -324,7 +346,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	}
 	
 	// MARK: - Monitor geographic location
-
+	
 	/// Monitor a geographic region identified by a center coordinate and a radius.
 	/// Region monitoring
 	///
@@ -339,7 +361,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// - Throws: throw `LocationError.serviceNotAvailable` if hardware does not support region monitoring
 	@discardableResult
 	public func monitor(regionAt center: CLLocationCoordinate2D, radius: CLLocationDistance, cancelOnError: Bool = false,
-	                    enter: RegionObserver.onEvent?, exit: RegionObserver.onEvent?, error: @escaping RegionObserver.onFailure) throws -> RegionRequest {
+											enter: RegionObserver.onEvent?, exit: RegionObserver.onEvent?, error: @escaping RegionObserver.onFailure) throws -> RegionRequest {
 		let request = try RegionRequest(center: center, radius: radius, onEnter: enter, onExit: exit, error: error)
 		request.resume()
 		request.cancelOnError = cancelOnError
@@ -359,7 +381,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	/// - Throws: throw `LocationError.serviceNotAvailable` if hardware does not support region monitoring
 	@discardableResult
 	public func monitor(region: CLCircularRegion, cancelOnError: Bool = false,
-	                    enter: RegionObserver.onEvent?, exit: RegionObserver.onEvent?, error: @escaping RegionObserver.onFailure) throws -> RegionRequest {
+											enter: RegionObserver.onEvent?, exit: RegionObserver.onEvent?, error: @escaping RegionObserver.onFailure) throws -> RegionRequest {
 		let request = try RegionRequest(region: region, onEnter: enter, onExit: exit, error: error)
 		request.cancelOnError = cancelOnError
 		request.resume()
@@ -390,7 +412,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	///
 	/// - Parameter request: request to enqueue
 	/// - Returns: `true` if added correctly to the queue, `false` otherwise.
-	public func start<T: Request>(_ requests: T...) {
+	public func start<T:Request>(_ requests: T...) {
 		var hasChanges = false
 		for request in requests {
 			
@@ -427,7 +449,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			}
 		}
 		if hasChanges {
-			requests.forEach { $0.onResume() }
+			requests.forEach {
+				$0.onResume()
+			}
 			self.updateServicesStatus()
 		}
 	}
@@ -437,7 +461,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	///
 	/// - Parameter request: request to remove
 	/// - Returns: `true` if request was removed successfully, `false` if it's not part of the queue
-	public func cancel<T: Request>(_ requests: T...) {
+	public func cancel<T:Request>(_ requests: T...) {
 		var hasChanges = false
 		for request in requests {
 			if self.isQueued(request) == false {
@@ -473,20 +497,24 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 				hasChanges = true
 			}
 		}
-
+		
 		if hasChanges == true {
 			self.updateServicesStatus()
-			requests.forEach { $0.onCancel() }
+			requests.forEach {
+				$0.onCancel()
+			}
 		}
 	}
 	
 	/// Pause any passed queued reques
 	///
 	/// - Parameter requests: requests to pause
-	public func pause<T: Request>(_ requests: T...) {
+	public func pause<T:Request>(_ requests: T...) {
 		var hasChanges = false
 		for request in requests {
-			if self.isQueued(request) == false { continue }
+			if self.isQueued(request) == false {
+				continue
+			}
 			
 			if self.isQueued(request) && request.state.isRunning {
 				
@@ -519,7 +547,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		
 		if hasChanges == true {
 			self.updateServicesStatus()
-			requests.forEach { $0.onPause() }
+			requests.forEach {
+				$0.onPause()
+			}
 		}
 	}
 	
@@ -528,8 +558,10 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	///
 	/// - Parameter request: target request
 	/// - Returns: `true` if request is in a queue, `false` otherwise
-	internal func isQueued<T: Request>(_ request: T?) -> Bool {
-		guard let request = request else { return false }
+	internal func isQueued<T:Request>(_ request: T?) -> Bool {
+		guard let request = request else {
+			return false
+		}
 		
 		// Location Request
 		if let request = request as? LocationRequest {
@@ -562,27 +594,37 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	//MARK: CLLocationManager Region Monitoring Delegate
 	
 	public func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
-		let region = self.regionRequests.filter { $0.region == region }.first
+		let region = self.regionRequests.filter {
+			$0.region == region
+		}.first
 		region?.onStartMonitoring?()
 	}
 	
 	public func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
-		let region = self.regionRequests.filter { $0.region == region }.first
+		let region = self.regionRequests.filter {
+			$0.region == region
+		}.first
 		region?.dispatch(error: error)
 	}
 	
 	public func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-		let region = self.regionRequests.filter { $0.region == region }.first
+		let region = self.regionRequests.filter {
+			$0.region == region
+		}.first
 		region?.dispatch(event: .entered)
 	}
 	
 	public func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-		let region = self.regionRequests.filter { $0.region == region }.first
+		let region = self.regionRequests.filter {
+			$0.region == region
+		}.first
 		region?.dispatch(event: .exited)
 	}
 	
 	public func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
-		let region = self.regionRequests.filter { $0.region == region }.first
+		let region = self.regionRequests.filter {
+			$0.region == region
+		}.first
 		region?.dispatch(state: state)
 	}
 	
@@ -637,14 +679,20 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		var timeout: TimeInterval? = nil
 		var accuracyIsNavigation: Bool = false
 		self.locationRequests.forEach {
-			if case let .deferredUntil(rMt,rTime,rAcc) = $0.frequency {
-				if meters == nil || (rMt < meters!) { meters = rMt }
-				if timeout == nil || (rTime < timeout!) { timeout = rTime }
-				if rAcc == true { accuracyIsNavigation = true }
+			if case let .deferredUntil(rMt, rTime, rAcc) = $0.frequency {
+				if meters == nil || (rMt < meters!) {
+					meters = rMt
+				}
+				if timeout == nil || (rTime < timeout!) {
+					timeout = rTime
+				}
+				if rAcc == true {
+					accuracyIsNavigation = true
+				}
 			}
 		}
 		let accuracy = (accuracyIsNavigation ? Accuracy.navigation : Accuracy.room)
-		return (meters == nil ? nil : (meters!,timeout!, accuracy))
+		return (meters == nil ? nil : (meters!, timeout!, accuracy))
 	}
 	
 	
@@ -666,7 +714,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			}
 		}
 	}
-
+	
 	//MARK: - Location Tracking Helper Funcs
 	
 	/// Evaluate best settings based upon running location requests
@@ -680,7 +728,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		var accuracy: Accuracy = .any
 		var frequency: Frequency = .significant
 		var type: CLActivityType = .other
-		var distanceFilter: CLLocationDistance? = kCLDistanceFilterNone
+		var distanceFilter: CLLocationDistance? = nil
 		
 		for request in locationRequests {
 			guard request.state.isRunning else {
@@ -696,16 +744,10 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			if request.activity.rawValue > type.rawValue {
 				type = request.activity
 			}
-			if request.minimumDistance == nil {
-				// If mimumDistance is nil it's equal to `kCLDistanceFilterNone` and it will
-				// reports all movements regardless measured distance
-				distanceFilter = nil
-			} else {
-				// Otherwise if distanceFilter is higher than `kCLDistanceFilterNone` and our value is less than
-				// the current value, we want to store it. Lower value is the setting.
-				if distanceFilter != nil && request.minimumDistance! < distanceFilter! {
-					distanceFilter = request.minimumDistance!
-				}
+			if let filter = distanceFilter, let minDistance = request.minimumDistance {
+				distanceFilter = min(filter, minDistance)
+			} else if let minDistance = request.minimumDistance {
+				distanceFilter = minDistance
 			}
 		}
 		
@@ -728,28 +770,34 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			accuracy = deferredSettings.accuracy // B)
 			distanceFilter = kCLDistanceFilterNone // C)
 			let isNavigationAccuracy = (deferredSettings.accuracy.level == kCLLocationAccuracyBestForNavigation)
-			frequency = .deferredUntil(distance: deferredSettings.meters, timeout: deferredSettings.timeout, navigation:  isNavigationAccuracy)
+			frequency = .deferredUntil(distance: deferredSettings.meters, timeout: deferredSettings.timeout, navigation: isNavigationAccuracy)
 		}
 		
 		return TrackerSettings(accuracy: accuracy, frequency: frequency, activity: type, distanceFilter: distanceFilter!)
 	}
-
+	
 	//MARK: - CLLocationManager Location Tracking Delegate
 	
 	@objc open func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-		locationRequests.forEach { $0.dispatchAuthChange(self.lastStatus, status) }
+		locationRequests.forEach {
+			$0.dispatchAuthChange(self.lastStatus, status)
+		}
 		self.lastStatus = status
 		
 		switch status {
-		case .denied, .restricted:
-			let error = LocationError.authDidChange(status)
-			self.pools.forEach { $0.dispatch(error: error) }
-			self.updateServicesStatus()
-		case .authorizedAlways, .authorizedWhenInUse:
-			self.pools.forEach { $0.resumeWaitingAuth() }
-			self.updateServicesStatus()
-		default:
-			break
+			case .denied, .restricted:
+				let error = LocationError.authDidChange(status)
+				self.pools.forEach {
+					$0.dispatch(error: error)
+				}
+				self.updateServicesStatus()
+			case .authorizedAlways, .authorizedWhenInUse:
+				self.pools.forEach {
+					$0.resumeWaitingAuth()
+				}
+				self.updateServicesStatus()
+			default:
+				break
 		}
 	}
 	
@@ -777,7 +825,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	}
 	
 	//MARK: CLLocationManager Deferred Error Delegate
-
+	
 	public func locationManager(_ manager: CLLocationManager, didFinishDeferredUpdatesWithError error: Error?) {
 		// iterate over deferred locations
 		locationRequests.iterate({ return $0.frequency.isDeferredFrequency }, {
@@ -817,12 +865,14 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			// Something went wrong, stop all...
 			self.locationSettings = nil
 			// Dispatch error
-			pools.forEach { $0.dispatch(error: error) }
+			pools.forEach {
+				$0.dispatch(error: error)
+			}
 		}
 	}
 	
 	private var pools: [RequestsQueueProtocol] {
-		let pools: [RequestsQueueProtocol] = [locationRequests, regionRequests, visitRequests,geocoderRequests,headingRequests]
+		let pools: [RequestsQueueProtocol] = [locationRequests, regionRequests, visitRequests, geocoderRequests, headingRequests]
 		return pools
 	}
 	
@@ -833,7 +883,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 	private func requireAuthorizationIfNeeded() throws -> Bool {
 		func pauseAllRunningRequest() {
 			// Mark running requests as pending
-			pools.forEach { $0.set(.waitingUserAuth, forRequestsIn: [.running,.idle]) }
+			pools.forEach {
+				$0.set(.waitingUserAuth, forRequestsIn: [.running, .idle])
+			}
 		}
 		
 		// This is the authorization keys set in Info.plist
@@ -849,30 +901,30 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		}
 		
 		switch currentAuth {
-		case .denied,.disabled, .restricted:
-			// Authorization was explicity disabled
-			throw LocationError.authorizationDenided
-		default:
-			if requiredAuth == .always && (currentAuth == .inUseAuthorized || currentAuth == .undetermined) {
-				// We need always authorization but we have in-use authorization
-				if plistAuth != .always && plistAuth != .both { // we have not set the correct plist key to support this auth
-					throw LocationError.missingAuthInInfoPlist
+			case .denied, .disabled, .restricted:
+				// Authorization was explicity disabled
+				throw LocationError.authorizationDenided
+			default:
+				if requiredAuth == .always && (currentAuth == .inUseAuthorized || currentAuth == .undetermined) {
+					// We need always authorization but we have in-use authorization
+					if plistAuth != .always && plistAuth != .both { // we have not set the correct plist key to support this auth
+						throw LocationError.missingAuthInInfoPlist
+					}
+					// Okay we can require it
+					pauseAllRunningRequest()
+					locationManager.requestAlwaysAuthorization()
+					return true
 				}
-				// Okay we can require it
-				pauseAllRunningRequest()
-				locationManager.requestAlwaysAuthorization()
-				return true
-			}
-			if requiredAuth == .inuse && currentAuth == .undetermined {
-				// We have not set not always or in-use auth plist so we can continue
-				if plistAuth != .inuse && plistAuth != .both {
-					throw LocationError.missingAuthInInfoPlist
+				if requiredAuth == .inuse && currentAuth == .undetermined {
+					// We have not set not always or in-use auth plist so we can continue
+					if plistAuth != .inuse && plistAuth != .both {
+						throw LocationError.missingAuthInInfoPlist
+					}
+					// require in use authorization
+					pauseAllRunningRequest()
+					locationManager.requestWhenInUseAuthorization()
+					return true
 				}
-				// require in use authorization
-				pauseAllRunningRequest()
-				locationManager.requestWhenInUseAuthorization()
-				return true
-			}
 		}
 		// We have enough rights to continue without requiring auth
 		return false
@@ -914,7 +966,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 			// Check if device supports location services.
 			// If not dispatch the error to any running request and stop.
 			guard CLLocationManager.locationServicesEnabled() else {
-				locationRequests.forEach { $0.dispatch(error: LocationError.serviceNotAvailable) }
+				locationRequests.forEach {
+					$0.dispatch(error: LocationError.serviceNotAvailable)
+				}
 				return
 			}
 		}
@@ -922,7 +976,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		// If there is a request which needs background capabilities and we have not set it
 		// dispatch proper error.
 		if hasBackgroundRequests && CLLocationManager.isBackgroundUpdateEnabled == false {
-			locationRequests.forEach { $0.dispatch(error: LocationError.backgroundModeNotSet) }
+			locationRequests.forEach {
+				$0.dispatch(error: LocationError.backgroundModeNotSet)
+			}
 			return
 		}
 		
@@ -931,10 +987,14 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 		
 		let isAppInBackground = (UIApplication.shared.applicationState == .background && CLLocationManager.isBackgroundUpdateEnabled)
 		self.locationManager.allowsBackgroundLocationUpdates = isAppInBackground
-		if isAppInBackground { self.autoPauseUpdates = false }
+		if isAppInBackground {
+			self.autoPauseUpdates = false
+		}
 		
 		// Resume any paused request (a paused request is in `.waitingUserAuth`,`.paused` or `.failed`)
-		locationRequests.iterate([.waitingUserAuth]) { $0.resume() }
+		locationRequests.iterate([.waitingUserAuth]) {
+			$0.resume()
+		}
 		
 		// Setup with best settings
 		self.locationSettings = bestSettings
@@ -990,7 +1050,7 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 				bestHeading = kCLHeadingFilterNone
 				break
 			}
-			bestHeading = min(bestHeading,filter)
+			bestHeading = min(bestHeading, filter)
 		}
 		locationManager.headingFilter = bestHeading
 		// Start

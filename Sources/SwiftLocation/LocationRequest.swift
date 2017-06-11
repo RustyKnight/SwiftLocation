@@ -42,8 +42,8 @@ import CoreLocation
 /// - onAuthDidChange: on receive a change in authorization status
 public enum LocObserver {
 	public typealias onSuccess = ((_ request: LocationRequest, _ location: CLLocation) -> (Void))
-	public typealias onError = ((_ request: LocationRequest, _ lastLocation: CLLocation? , _ error: Error) -> (Void))
-	public typealias onAuthChange = ((_ request: LocationRequest, _ old: CLAuthorizationStatus , _ new: CLAuthorizationStatus) -> (Void))
+	public typealias onError = ((_ request: LocationRequest, _ lastLocation: CLLocation?, _ error: Error) -> (Void))
+	public typealias onAuthChange = ((_ request: LocationRequest, _ old: CLAuthorizationStatus, _ new: CLAuthorizationStatus) -> (Void))
 	
 	case onReceiveLocation(_: Context, _: onSuccess)
 	case onErrorOccurred(_: Context, _: onError)
@@ -56,7 +56,7 @@ public class LocationRequest: Request {
 	private(set) var frequency: Frequency
 	
 	/// Desidered accuracy
-	private(set) var accuracy:	Accuracy
+	private(set) var accuracy: Accuracy
 	
 	/// Type of activity.
 	/// It indicate the type of activity associated with location updates and helps the system to set best value
@@ -75,10 +75,10 @@ public class LocationRequest: Request {
 		let name = (self.name ?? self.identifier)
 		return "[LOC:\(name)] - Acc=\(accuracy), Fq=\(frequency). (Status=\(self.state), Queued=\(self.isInQueue))"
 	}
-
+	
 	/// Timeout timer
 	private var timeoutTimer: Timer?
-
+	
 	/// Set a valid interval to enable a timer. Timeout starts automatically
 	public var timeout: TimeInterval? = nil
 	
@@ -105,7 +105,7 @@ public class LocationRequest: Request {
 	internal(set) var _state: RequestState = .idle {
 		didSet {
 			if _previousState != _state {
-				onStateChange?(_previousState,_state)
+				onStateChange?(_previousState, _state)
 				_previousState = _state
 			}
 		}
@@ -133,8 +133,14 @@ public class LocationRequest: Request {
 	///   - frequency: frequency of updates for location meause
 	///   - success: callback called when a new location has been received
 	///   - error: callback called when an error has been received
-	public init(name: String? = nil, accuracy: Accuracy, frequency: Frequency,
-	            _ success: @escaping LocObserver.onSuccess, _ error: LocObserver.onError? = nil) {
+	public init(
+			name: String? = nil,
+			accuracy: Accuracy,
+			frequency: Frequency,
+			activity: CLActivityType = .other,
+			minimumDistance: CLLocationDistance? = nil,
+			_ success: @escaping LocObserver.onSuccess,
+			_ error: LocObserver.onError? = nil) {
 		self.name = name
 		self.accuracy = accuracy
 		if case .IPScan(_) = accuracy {
@@ -174,7 +180,7 @@ public class LocationRequest: Request {
 		self.stopTimeout()
 		Location.cancel(self)
 	}
-
+	
 	/// `true` if request is on location queue
 	public var isInQueue: Bool {
 		return Location.isQueued(self) == true
@@ -183,10 +189,10 @@ public class LocationRequest: Request {
 	/// `true` if request works in background app state
 	public var isBackgroundRequest: Bool {
 		switch self.frequency {
-		case .deferredUntil(_,_,_):
-			return true
-		default:
-			return false
+			case .deferredUntil(_, _, _):
+				return true
+			default:
+				return false
 		}
 	}
 	
@@ -195,10 +201,10 @@ public class LocationRequest: Request {
 			return .none
 		}
 		switch self.frequency {
-		case .deferredUntil(_,_,_), .significant:
-			return .always
-		default:
-			return .inuse
+			case .deferredUntil(_, _, _), .significant:
+				return .always
+			default:
+				return .inuse
 		}
 	}
 	
@@ -213,12 +219,14 @@ public class LocationRequest: Request {
 	/// Does nothing if not specified
 	private func startTimeout() {
 		stopTimeout()
-		guard let interval = self.timeout else { return }
+		guard let interval = self.timeout else {
+			return
+		}
 		self.timeoutTimer = Timer.scheduledTimer(timeInterval: interval,
-		                                         target: self,
-		                                         selector: #selector(timeoutTimerFired),
-		                                         userInfo: nil,
-		                                         repeats: false)
+				target: self,
+				selector: #selector(timeoutTimerFired),
+				userInfo: nil,
+				repeats: false)
 	}
 	
 	
@@ -246,20 +254,30 @@ public class LocationRequest: Request {
 	/// - Parameter location: location received from system
 	internal func dispatch(location: CLLocation?) {
 		// if request is paused or location is nil we want to discard this event
-		guard let loc = location else { return }
+		guard let loc = location else {
+			return
+		}
 		// if received location is not valid in accuracy we want to discard this event
-		guard accuracy.isValid(loc) else { return }
+		guard accuracy.isValid(loc) else {
+			return
+		}
 		
 		// Validate request's accuracy
-		guard accuracy.isValid(loc) else { return }
+		guard accuracy.isValid(loc) else {
+			return
+		}
 		// Validate minimum distance (if set)
-		guard isValidMinimumDistance(loc) else { return }
+		guard isValidMinimumDistance(loc) else {
+			return
+		}
 		
 		// store last valid location an dispatch it to call
 		self.lastLocation = loc
 		self.registeredCallbacks.forEach {
 			if case .onReceiveLocation(let context, let handler) = $0 {
-				context.queue.async { handler(self,loc) }
+				context.queue.async {
+					handler(self, loc)
+				}
 			}
 		}
 		
@@ -272,11 +290,13 @@ public class LocationRequest: Request {
 	
 	private func isValidMinimumDistance(_ loc: CLLocation) -> Bool {
 		// no filter by distance is applied, check passed
-		guard let lastLoc = self.lastLocation, let minDistance = self.minimumDistance else { return true }
+		guard let lastLoc = self.lastLocation, let minDistance = self.minimumDistance else {
+			return true
+		}
 		// check horizontal distance
 		return (loc.distance(from: lastLoc) > minDistance)
 	}
-
+	
 	
 	/// Stop request according to settings
 	///
@@ -307,7 +327,9 @@ public class LocationRequest: Request {
 	internal func dispatchAuthChange(_ old: CLAuthorizationStatus, _ new: CLAuthorizationStatus) {
 		self.registeredCallbacks.forEach { callback in
 			if case .onAuthDidChange(let context, let handler) = callback {
-				context.queue.async { handler(self,old,new) }
+				context.queue.async {
+					handler(self, old, new)
+				}
 			}
 		}
 	}
@@ -320,7 +342,9 @@ public class LocationRequest: Request {
 		// Alert callbacks
 		self.registeredCallbacks.forEach {
 			if case .onErrorOccurred(let context, let handler) = $0 {
-				context.queue.async { handler(self,self.lastLocation,error) }
+				context.queue.async {
+					handler(self, self.lastLocation, error)
+				}
 			}
 		}
 		
@@ -333,16 +357,18 @@ public class LocationRequest: Request {
 	public func onResume() {
 		self.startTimeout() // start timer for timeout if necessary
 		switch self.accuracy {
-		case .IPScan(_):
-			self.executeIPLocationRequest() // execute request
-		default:
-			break
+			case .IPScan(_):
+				self.executeIPLocationRequest() // execute request
+			default:
+				break
 		}
 	}
 	
-	public func onPause() { }
+	public func onPause() {
+	}
 	
-	public func onCancel() { }
+	public func onCancel() {
+	}
 	
 	//MARK: IP Location Extensions
 	
