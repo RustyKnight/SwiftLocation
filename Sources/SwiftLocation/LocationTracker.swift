@@ -745,7 +745,9 @@ public final class LocationTracker: NSObject, CLLocationManagerDelegate {
 				type = request.activity
 			}
 			if let filter = distanceFilter, let minDistance = request.minimumDistance {
-				distanceFilter = min(filter, minDistance)
+				if minDistance != kCLDistanceFilterNone {
+					distanceFilter = min(filter, minDistance)
+				}
 			} else if let minDistance = request.minimumDistance {
 				distanceFilter = minDistance
 			}

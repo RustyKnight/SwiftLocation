@@ -131,6 +131,8 @@ public class LocationRequest: Request {
 	/// - Parameters:
 	///   - accuracy: accuracy of the location measure
 	///   - frequency: frequency of updates for location meause
+	///   - activity: Type of activity. It indicate the type of activity associated with location updates and helps the system to set best value for energy efficiency.
+	///   - minimumDistance: The minimum distance (measured in meters) a device must move horizontally before an update event is generated.
 	///   - success: callback called when a new location has been received
 	///   - error: callback called when an error has been received
 	public init(
@@ -149,6 +151,9 @@ public class LocationRequest: Request {
 		} else {
 			self.frequency = frequency
 		}
+		
+		self.activity = activity
+		self.minimumDistance = minimumDistance
 		
 		self.register(observer: LocObserver.onReceiveLocation(.main, success))
 		if error != nil {
